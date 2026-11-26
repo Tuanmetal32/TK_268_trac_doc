@@ -1,6 +1,6 @@
 ---
 name: trac-doc
-description: Vẽ bản vẽ trắc dọc tuyến đường (bảng trắc dọc 8 hàng, đường dóng cọc, đường tự nhiên, đường thiết kế + cong đứng, hàng Đoạn thẳng - Đoạn cong từ file .ntd) trong AutoCAD qua MCP autocad-mcp theo layer TK_268_..., text style TK_268_... (font unicode), màu và cỡ chữ theo bản mẫu 02.TNTK.dwg. Dùng khi người dùng yêu cầu vẽ, chỉnh hoặc kiểm tra trắc dọc tuyến.
+description: Vẽ bản vẽ trắc dọc tuyến đường (bảng trắc dọc 8 hàng, đường dóng cọc, đường tự nhiên, đường thiết kế + cong đứng, hàng Đoạn thẳng - Đoạn cong từ file .ntd) trong OpenCADStudio (máy Linux này, qua MCP opencadstudio + script Python tracdoc.py) hoặc AutoCAD qua MCP autocad-mcp (máy Windows) theo layer TK_268_..., text style TK_268_... (font unicode), màu và cỡ chữ theo bản mẫu 02.TNTK.dwg. Dùng khi người dùng yêu cầu vẽ, chỉnh hoặc kiểm tra trắc dọc tuyến.
 ---
 
 # Skill vẽ trắc dọc (theo bản mẫu `02.TNTK.dwg`)
@@ -10,6 +10,15 @@ Nguồn: đọc trực tiếp từ bản vẽ `02.TNTK.dwg` ngày 2026-11-25 (tu
 **Cập nhật 2026-11-25 (theo yêu cầu người dùng):** toàn bộ layer trắc dọc đổi tên thành `TK_268_...`, text style đổi thành `TK_268_...` và dùng font unicode có sẵn trên máy (arial.ttf, calibril.ttf) thay cho `.shx`/VnArial. Chỉ `td:layer` tra theo mã cũ → tên mới; bản vẽ cũ vẫn có layer tên cũ thì hàm tự dùng tên cũ.
 
 Các file lisp (cùng thư mục): `trac-doc-helpers.lsp` (bảng, cọc, đường tự nhiên, ký hiệu km/tỷ lệ, hàng Đoạn thẳng - Đoạn cong, đọc .ntd), `trac-doc-thietke.lsp` (đường thiết kế + cong đứng), `td-khoi-tao.lsp` (lệnh `TDKT`). Đã chạy thử trên `testTDTN.dwg`; lần đầu dùng ở bản vẽ mới vẫn nên thử ở vùng trống, chụp màn hình đối chiếu rồi mới giao.
+
+## 0. Máy Linux này: OpenCADStudio (không có AutoLISP) — DÙNG MỤC NÀY TRƯỚC
+OpenCADStudio không chạy được `.lsp`. **Cài đặt (một lần):** `git clone https://github.com/Tuanmetal32/TK_268_trac_doc ~/.claude/skills/trac-doc && cd ~/.claude/skills/trac-doc && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt` (cần Python ≥ 3.9 + MCP opencadstudio). Toàn bộ lisp đã port sang `~/.claude/skills/trac-doc/tracdoc.py` (cùng hình học, layer, màu, style, căn lề; dùng ezdxf trong venv `~/.claude/skills/trac-doc/.venv`).
+1. Viết `input.json` (mẫu: `vi-du.json`): `ox, oy, hbase`, `cocs` [(tên, lý trình, CĐ tự nhiên, CĐ thiết kế|null, chỉnh cao|null)] **hoặc** `ntd` (đường dẫn .ntd → lấy cọc + vẽ hàng Đoạn thẳng - Đoạn cong), `ky_hieu` (true), `thiet_ke` {s0,z0,sp,zp,s1,z1,R} nếu có đường đỏ 1 đỉnh + cong đứng.
+2. `~/.claude/skills/trac-doc/.venv/bin/python ~/.claude/skills/trac-doc/tracdoc.py input.json out.dxf` (in ra i1, i2, L, T, BVC, EVC để đối chiếu).
+3. OCS: `ocs_sessions` → `ocs_open` file DXF (bản vẽ mới, có sẵn 20 layer + 4 style TK_268_) → `ocs_capture` (view `extents` / `region`; ảnh trả về JSON rất dài, dùng ít) → `ocs_save_verified` ra `.dwg` (2018) khi người dùng muốn lưu.
+3b. `day_ranh` {i, lech | z0} hoặc nhiều đoạn dốc {lech, doan: [{den: tên cọc | lý trình | null=cuối tuyến, i}, ...]} (hàng Độ dốc đáy rãnh chia theo đoạn, dốc 0 vẽ vạch ngang giữa ô): chèn 2 hàng (chữ màu 4) ngay trên Cao độ tự nhiên, DƯỚI hai hàng thiết kế mặt đường: "Độ dốc đáy rãnh" (66–78), "Cao độ đáy rãnh" (78–90); Dốc dọc TK đẩy lên 90–102, Cao độ TK 102–114; đồ thị dịch lên 24. Chênh cao (CĐ thiết kế mặt đường − CĐ đáy rãnh) ghi TRÊN ĐỒ THỊ, không ở bảng: TEXT cao 1.8 xoay 90°, layer TK_268_DayRanh, bên trái đường dóng 0.3, chân chữ cách đáy rãnh 0.5 tại mỗi cọc — theo yêu cầu người dùng 2026-11-26, đồ thị + ký hiệu phía trên dịch lên 24; đường đáy rãnh layer mới `TK_268_DayRanh` (màu 4, không có trong bản mẫu). Mặc định z0 = cao độ thiết kế (hoặc tự nhiên) đầu tuyến − lech.
+4. Chèn vào bản vẽ đang có: chưa làm; hỏi người dùng (có thể dùng INSERT/ATTACH file DXF ở vị trí ox,oy).
+Đã chạy thử 2026-11-26 với `SLT_HUNGHOC.ntd` (39 cọc, 349 đối tượng, audit DWG không lỗi). Các mục 4, 4b (lệnh `load`, `TDKT`) bên dưới chỉ áp dụng cho AutoCAD trên Windows (đường dẫn `D:/...`).
 
 ## 1. Hệ toạ độ và tỷ lệ
 - Đơn vị **mét** (`INSUNITS=6`), vẽ 1:1 trong Model.
